@@ -1,0 +1,10 @@
+# 统一使用 LF 行尾（跨平台一致，避免 CRLF 转换噪音）
+* text=auto eol=lf
+
+# 二进制文件不转换（明确声明）
+*.pdf binary
+*.mp4 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary

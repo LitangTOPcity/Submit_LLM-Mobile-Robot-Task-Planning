@@ -1,0 +1,13 @@
+# 生成物不入库（任务书要求）
+__pycache__/
+*.pyc
+logs/
+demo_out.txt
+# 演示视频：大二进制不入库，私密上传后在 README 放链接
+video/
+*.mp4
+
+.idea/
+.venv/
+venv/
+env/

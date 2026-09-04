@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="620" viewBox="0 0 900 620"
+     font-family="'Segoe UI', Arial, 'Microsoft YaHei', sans-serif">
+  <title>LLM-Assisted Mobile Robot Task Planning — System Architecture</title>
+
+  <!-- 标题 -->
+  <text x="450" y="36" text-anchor="middle" font-size="20" font-weight="bold"
+        fill="#1a1a2e">System Architecture: LLM-Assisted Mobile Robot Task Planning</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#444"/>
+    </marker>
+    <marker id="arrowDashed" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <!-- 盒子的通用样式 -->
+  <!-- 1. 用户请求 -->
+  <rect x="330" y="60" width="240" height="52" rx="8" fill="#eaf2f8" stroke="#2c3e50" stroke-width="1.5"/>
+  <text x="450" y="84" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">User Natural-Language Request</text>
+  <text x="450" y="102" text-anchor="middle" font-size="12" fill="#555">"Go to storage, then visit the workbench, and stop."</text>
+
+  <!-- 2. 任务规划器 (Part 4) -->
+  <rect x="300" y="150" width="300" height="66" rx="8" fill="#fdf2e9" stroke="#2c3e50" stroke-width="1.5"/>
+  <text x="450" y="176" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">Task Planner (Part 4)</text>
+  <text x="450" y="196" text-anchor="middle" font-size="12" fill="#555">LLM tool calling (OpenAI-compatible) / Mock mode</text>
+  <text x="450" y="210" text-anchor="middle" font-size="12" fill="#555">produces validated sequence of skill calls</text>
+
+  <!-- 3. 注册表 + 校验器 -->
+  <rect x="285" y="254" width="330" height="66" rx="8" fill="#ebf5eb" stroke="#2c3e50" stroke-width="1.5"/>
+  <text x="450" y="280" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">Skill Registry + Validator (Part 3)</text>
+  <text x="450" y="300" text-anchor="middle" font-size="12" fill="#555">allowlist / typed args / ranges / workspace bounds</text>
+  <text x="450" y="314" text-anchor="middle" font-size="12" fill="#555">JSON Schema · OpenAI tool schemas · compact registry</text>
+
+  <!-- 4. 执行器 -->
+  <rect x="300" y="358" width="300" height="66" rx="8" fill="#f4ecf7" stroke="#2c3e50" stroke-width="1.5"/>
+  <text x="450" y="384" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">Skill Executor (Part 3)</text>
+  <text x="450" y="404" text-anchor="middle" font-size="12" fill="#555">preconditions · mutual exclusion · timeout · logging</text>
+  <text x="450" y="418" text-anchor="middle" font-size="12" fill="#555">structured result: success / reason / elapsed_time</text>
+
+  <!-- 5. 机器人技能 (Part 2) -->
+  <rect x="290" y="462" width="320" height="66" rx="8" fill="#fdecea" stroke="#2c3e50" stroke-width="1.5"/>
+  <text x="450" y="488" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">Robot Skills (Part 2)</text>
+  <text x="450" y="508" text-anchor="middle" font-size="12" fill="#555">navigate_to(x, y, θ) · follow_waypoints · stop()</text>
+  <text x="450" y="522" text-anchor="middle" font-size="12" fill="#555">two-phase state machine · tolerance &amp; timeout handling</text>
+
+  <!-- 6. Webots -->
+  <rect x="640" y="462" width="220" height="66" rx="8" fill="#fef9e7" stroke="#2c3e50" stroke-width="1.5"/>
+  <text x="750" y="488" text-anchor="middle" font-size="15" font-weight="bold" fill="#1a1a2e">Webots Simulation</text>
+  <text x="750" y="508" text-anchor="middle" font-size="12" fill="#555">RoboMaster · /cmd_vel · /odom</text>
+
+  <!-- 主链路箭头 -->
+  <line x1="450" y1="112" x2="450" y2="148" stroke="#444" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="216" x2="450" y2="252" stroke="#444" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="320" x2="450" y2="356" stroke="#444" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="424" x2="450" y2="460" stroke="#444" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 技能 -> Webots -->
+  <line x1="612" y1="495" x2="638" y2="495" stroke="#444" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="625" y="486" text-anchor="middle" font-size="11" fill="#444">cmd_vel</text>
+  <!-- Webots -> 技能 (odom, 虚线) -->
+  <line x1="660" y1="528" x2="460" y2="528" stroke="#888" stroke-width="1.5" stroke-dasharray="6,4"/>
+  <text x="560" y="548" text-anchor="middle" font-size="11" fill="#888">odometry feedback (pose)</text>
+
+  <!-- 执行反馈回路（SkillResult 由 Skill Executor 产生并回喂规划器，虚线红色） -->
+  <path d="M 300 391 C 120 391 120 183 298 183" fill="none" stroke="#c0392b" stroke-width="2"
+        stroke-dasharray="7,5" marker-end="url(#arrowDashed)"/>
+  <text x="80" y="340" font-size="12" fill="#c0392b" transform="rotate(-90 80 340)" text-anchor="middle">execution feedback: SkillResult (success / reason / metrics)</text>
+  <text x="80" y="160" font-size="11" fill="#c0392b" text-anchor="middle">recovery decision: retry once · reject · stop &amp; report</text>
+
+  <!-- 图例 -->
+  <rect x="30" y="580" width="840" height="30" rx="6" fill="#f8f9fa" stroke="#ccc"/>
+  <text x="45" y="600" font-size="12" fill="#333">Solid: data/command flow · Dashed gray: odometry · Dashed red: execution feedback &amp; bounded recovery (Part 4)</text>
+</svg>

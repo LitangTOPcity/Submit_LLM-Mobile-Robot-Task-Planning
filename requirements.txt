@@ -1,0 +1,4 @@
+# Part 3/4 依赖（按需安装）
+#   - 导航与接口层（Part 2/3、Mock 模式）：零第三方依赖，纯 Python 标准库
+#   - 真实 LLM 模式（Part 4）：需要 requests 调用 OpenAI 兼容 API（DeepSeek/OpenAI/Ollama）
+requests>=2.28
