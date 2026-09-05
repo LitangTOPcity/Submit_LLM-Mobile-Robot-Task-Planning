@@ -88,7 +88,8 @@ the robot moves.
 
 % =====================================================================
 % II. SYSTEM ARCHITECTURE AND SKILL INTERFACE
-% =====================================================================\section{System Architecture and Skill Interface}
+% =====================================================================
+\section{System Architecture and Skill Interface}
 
 \subsection{Architecture}
 The pipeline is shown in Fig.~\ref{fig:arch}. A natural-language request is
@@ -125,9 +126,9 @@ recovery decisions.
 \draw[fb] (exec.west) to[bend left=35]
       node[pos=0.5,left,font=\tiny]{SkillResult} (planner.west);
 \end{tikzpicture}
-\caption{System architecture: user request $\rightarrow$ planner $\rightarrow$
-validator/executor $\rightarrow$ robot skills $\rightarrow$ simulation, with
-structured results fed back for bounded recovery.}
+\caption{System architecture: request $\rightarrow$ planner $\rightarrow$
+validator/executor $\rightarrow$ skills $\rightarrow$ simulation, with
+structured results fed back for recovery.}
 \label{fig:arch}
 \end{figure}
 
@@ -255,9 +256,11 @@ at the origin of the odometry frame. Four named locations
 (\texttt{entrance}, \texttt{storage}, \texttt{workbench},
 \texttt{charging\_station}) were placed in obstacle-free areas verified by a
 clearance checker over all pairwise straight-line paths
-($\ge 0.35$\,m from all walls and furniture). The LLM used is DeepSeek
-\texttt{deepseek-chat} \cite{deepseek} through the OpenAI-compatible API
-\cite{openai-fc}.
+($\ge 0.35$\,m from all walls and furniture). Because navigation follows
+straight lines without obstacle avoidance, this manual placement guarantees
+that every commanded path is collision-free by construction. The LLM used is
+DeepSeek \texttt{deepseek-chat} \cite{deepseek} through the OpenAI-compatible
+API \cite{openai-fc}.
 
 \subsection{Test cases}
 Table~\ref{tab:nav} reports the navigation accuracy of the Part~2 skills in the
@@ -337,9 +340,13 @@ the tool schema to object-form waypoints made the same request succeed.
 This case shows that the validator catches such failures before any command
 is sent. Repeated runs of the same instruction were consistent: the mock
 planner's \texttt{Go to storage.} completed in 24.5 and 24.7\,s in two
-sessions and in 26.5\,s with the LLM. Every run converged within the stated
-tolerances, with measured position errors in $0.084$--$0.099$\,m and heading
-errors in $0.086$--$0.099$\,rad.
+sessions and in 26.5\,s with the LLM. The small difference is expected: the
+LLM path adds API round-trip latency, and for the multi-location request the
+LLM may choose a different (but equivalent) skill sequence such as a single
+\texttt{follow\_waypoints} call instead of two \texttt{navigate\_to} calls,
+so wall-clock time is not directly comparable between modes. Every run
+converged within the stated tolerances, with measured position errors in
+$0.084$--$0.099$\,m and heading errors in $0.086$--$0.099$\,rad.
 For every task the planner log records the original plan, per-step results,
 recovery decision, and final outcome, which supports auditing and
 reproduction.
@@ -357,6 +364,17 @@ error, and invalid or out-of-range requests were rejected without robot
 motion. The contribution is engineering value rather than algorithmic novelty:
 combining function-calling LLMs with explicit skill contracts and bounded
 recovery yields a system that is safe in practice and reproducible.
+
+Recalling the four design goals from Section~I, the system achieves
+safety by confining the LLM to a fixed allowlist and validating every
+call before execution; explicit contracts through the registry's
+typed parameters, preconditions, and structured results; reliable
+navigation by reporting success only within the position and heading
+tolerances and handling timeouts safely; and modularity by decoupling
+the control, interface, and planning layers so that each part can be tested
+independently. The evaluation confirms that all four goals hold in practice:
+the required requests succeed within tolerance, and invalid or out-of-range
+requests never move the robot.
 
 The current system has no obstacle avoidance: navigation follows straight
 lines, so locations must be manually selected in obstacle-free areas. A
