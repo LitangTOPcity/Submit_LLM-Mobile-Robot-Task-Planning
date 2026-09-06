@@ -53,6 +53,17 @@ safe, executable robot tasks. The system takes a request such as
 and produces a small plan, validated before execution, that the robot
 carries out safely in a Webots simulation.
 
+Existing LLM-based robot systems have shown that language can guide
+action planning, but directly mapping unconstrained model outputs to robot
+execution is risky: an LLM may emit syntactically valid yet physically
+infeasible commands, invalid parameters, or sequences that do not terminate
+as expected. This creates a gap between the flexibility of high-level
+language reasoning and the reliability required by low-level robot
+execution. This work therefore separates high-level task planning from
+deterministic robot execution through a constrained skill interface and a
+validation layer: the model suggests, but deterministic rules decide what is
+executed.
+
 The design is guided by four goals:
 \begin{itemize}
   \item \textbf{Safety:} the LLM may only \emph{suggest} skill calls through
@@ -74,17 +85,20 @@ The design is guided by four goals:
 The project is organized into four parts: Part~1 sets up and verifies the
 simulation environment with manual keyboard control, Part~2 implements the
 navigation skills, Part~3 defines the structured skill interface, and Part~4
-adds LLM-based task planning; the remainder of this paper follows this
+adds LLM-based task planning. The remainder of this paper follows this
 structure.
 
 \subsection*{Related work}
 LLMs have recently been used for robot control: SayCan \cite{saycan} and
 RT-2 \cite{rt2} ground language in robotic policies, and Voyager
-\cite{voyager} drives long-horizon tasks through tool calling. Those works
-focus on generalization and exploration; the present work instead
-emphasizes safety: the LLM only proposes calls to a fixed allowlist of
-skills, and a validator with bounded recovery guards every execution before
-the robot moves.
+\cite{voyager} drives long-horizon tasks through tool calling. Code as
+Policies \cite{cap} goes further and lets the model generate executable
+Python control code directly. Those works focus on generalization,
+exploration, or code generation; the present work instead emphasizes
+safety: the LLM only proposes calls to a fixed allowlist of skills, and a
+validator with bounded recovery guards every execution before the robot
+moves. Unlike CaP, our executor never evaluates or runs code produced by
+the model.
 
 % =====================================================================
 % II. SYSTEM ARCHITECTURE AND SKILL INTERFACE
@@ -100,7 +114,14 @@ which enforces the allowlist, argument checks, workspace bounds, mutual
 exclusion, timeouts, and structured logging. Executed skills command the
 robot through \texttt{/cmd\_vel} and read pose from \texttt{/odom}. The
 structured result of each skill is fed back to the planner for bounded
-recovery decisions.
+recovery decisions. The key design principle is that the LLM has planning
+authority but no direct execution authority: all robot-affecting actions are
+gated by deterministic validation and execution rules, so model variability
+cannot propagate to unsafe motion. This separation is intentional: the LLM
+is used where flexibility matters (interpreting instructions, composing
+skills), while robot-affecting operations stay in deterministic, testable
+components. The design trades some action-space flexibility for stronger
+controllability, validation, and reproducibility.
 
 \begin{figure}[t]
 \centering
@@ -239,8 +260,8 @@ parameters, targets outside the measured workspace, or waypoints that are not
 \texttt{\{x, y, theta\}} objects, and \texttt{precondition\_failed} when a
 second call arrives while the robot is busy. These classes map one-to-one to
 the required safety checks (allowlist, typed arguments, workspace bounds, and
-bounded step and retry counts). Each rejection leaves the robot stationary;
-one live case, waypoints generated without \texttt{theta}, is discussed in
+bounded step and retry counts). Each rejection leaves the robot stationary.
+One live case, waypoints generated without \texttt{theta}, is discussed in
 Section IV.
 
 % =====================================================================
@@ -294,8 +315,15 @@ simulator. Measured errors across these runs were $0.084$--$0.087$\,m
 heading errors within the same $0.086$--$0.099$\,rad band.
 \end{table}
 
-Table~\ref{tab:results} summarizes the three required requests under both the
-mock planner and the real LLM, plus the timeout-recovery scenario.
+Table~\ref{tab:results} evaluates the main links in the execution pipeline
+rather than only the end-to-end success rate. The single-location request
+exercises natural-language grounding and basic skill selection, the
+multi-location request exercises sequential task planning and execution, the
+unknown-location case exercises pre-execution validation, and the timeout
+scenario exercises bounded recovery. The malformed-waypoint case (Section
+IV) further tests whether schema-level errors are intercepted before
+reaching the robot. Together these cases cover planning, execution,
+validation, and recovery within the implemented system.
 
 \begin{table}[t]
 \centering
@@ -349,7 +377,19 @@ converged within the stated tolerances, with measured position errors in
 $0.084$--$0.099$\,m and heading errors in $0.086$--$0.099$\,rad.
 For every task the planner log records the original plan, per-step results,
 recovery decision, and final outcome, which supports auditing and
-reproduction.
+reproduction. Taken together, these results suggest that the
+validator--executor boundary decouples LLM output variability
+from low-level robot safety, while retaining enough flexibility for the
+required natural-language tasks: the model can plan freely, but every action
+that reaches the robot is deterministic, validated, and logged.
+
+The mock-versus-LLM comparison also illustrates the underlying engineering
+trade-off. The mock planner is deterministic and fast, but limited to
+predefined task patterns; the LLM planner adds latency and nondeterminism
+in exchange for natural-language flexibility and variable skill sequences.
+The role of the validator--executor boundary is therefore not to remove
+this variability but to contain it at the planning layer, keeping robot
+execution constrained, observable, and recoverable.
 
 % =====================================================================
 % V. LIMITATIONS AND FUTURE WORK
@@ -361,9 +401,10 @@ system in simulation. Every proposed skill call passes an executor gate
 results with logging) before the robot moves. In Webots experiments all
 required requests succeeded within $0.1$\,m position and $0.1$\,rad heading
 error, and invalid or out-of-range requests were rejected without robot
-motion. The contribution is engineering value rather than algorithmic novelty:
-combining function-calling LLMs with explicit skill contracts and bounded
-recovery yields a system that is safe in practice and reproducible.
+motion. The main contribution is a reproducible engineering architecture
+that combines function-calling LLMs with explicit skill contracts and
+bounded recovery, yielding a system that is safe in practice and
+reproducible.
 
 Recalling the four design goals from Section~I, the system achieves
 safety by confining the LLM to a fixed allowlist and validating every
@@ -372,9 +413,9 @@ typed parameters, preconditions, and structured results; reliable
 navigation by reporting success only within the position and heading
 tolerances and handling timeouts safely; and modularity by decoupling
 the control, interface, and planning layers so that each part can be tested
-independently. The evaluation confirms that all four goals hold in practice:
-the required requests succeed within tolerance, and invalid or out-of-range
-requests never move the robot.
+independently. The evaluation provides evidence that these goals are
+supported in the implemented system: the required requests succeed within
+tolerance, and invalid or out-of-range requests never move the robot.
 
 The current system has no obstacle avoidance: navigation follows straight
 lines, so locations must be manually selected in obstacle-free areas. A
@@ -382,17 +423,22 @@ lidar-based local avoidance or a navigation stack would remove this
 constraint. Locations are hard-coded instead of discovered from a map, and
 the planner is single-request and stateless. LLM behavior is nondeterministic,
 so the validator must remain strict. Recovery is rule-based and does not yet
-let the model repair its own plan. Future work includes occupancy-map based
-planning, multi-request stateful dialogues, learned recovery policies, and
-migration to a physical robot, since the executor already accepts any robot
-driver that provides the three skill methods. As a safety consideration, API
-credentials are supplied through environment variables only and are never
-stored in the repository.
+let the model repair its own plan. A further direction is state-aware
+validation: the current validator checks syntax, ranges, the allowlist, and
+the workspace, but a legally typed argument is not necessarily feasible in
+the robot's current state; checking the robot's pose and path feasibility
+against an obstacle map before execution would tighten the safety boundary
+once such a map becomes available. Future work also includes
+occupancy-map based planning, multi-request stateful dialogues, learned
+recovery policies, and migration to a physical robot, since the executor
+already accepts any robot driver that provides the three skill methods. As a
+safety consideration, API credentials are supplied through environment
+variables only and are never stored in the repository.
 
 % =====================================================================
 % REFERENCES
 % =====================================================================
-\begin{thebibliography}{5}
+\begin{thebibliography}{6}
 \bibitem{saycan} M. Ahn et al., ``Do as I Can, Not as I Say: Grounding
 Language in Robotic Affordances,'' arXiv:2204.01691, 2022. [Online].
 Available: \url{https://arxiv.org/abs/2204.01691}
@@ -402,6 +448,9 @@ Available: \url{https://arxiv.org/abs/2307.15818}
 \bibitem{voyager} G. Wang et al., ``Voyager: An Open-Ended Embodied Agent with
 Large Language Models,'' arXiv:2305.16291, 2023. [Online]. Available:
 \url{https://arxiv.org/abs/2305.16291}
+\bibitem{cap} J. Liang et al., ``Code as Policies: Language Model Programs for
+Embodied Control,'' arXiv:2209.07753, 2022. [Online]. Available:
+\url{https://arxiv.org/abs/2209.07753}
 \bibitem{deepseek} DeepSeek, ``API Documentation.'' [Online]. Available:
 \url{https://api-docs.deepseek.com/} (Accessed: Sep.\ 2026)
 \bibitem{openai-fc} OpenAI, ``Function calling.'' [Online]. Available:
